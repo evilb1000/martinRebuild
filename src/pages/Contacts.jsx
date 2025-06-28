@@ -8,8 +8,83 @@ const Contacts = () => {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Filter states
+  const [filters, setFilters] = useState({
+    businessSector: '',
+    company: '',
+    linkedin: '',
+    notes: ''
+  });
+  const [filteredContacts, setFilteredContacts] = useState([]);
 
   console.log('Contacts component loaded');
+
+  // Filter logic
+  useEffect(() => {
+    if (contacts.length > 0) {
+      let filtered = [...contacts];
+      
+      // Filter by businessSector
+      if (filters.businessSector) {
+        filtered = filtered.filter(contact => 
+          contact.businessSector && 
+          contact.businessSector.toLowerCase().includes(filters.businessSector.toLowerCase())
+        );
+      }
+      
+      // Filter by company
+      if (filters.company) {
+        filtered = filtered.filter(contact => 
+          contact.company && 
+          contact.company.toLowerCase().includes(filters.company.toLowerCase())
+        );
+      }
+      
+      // Filter by linkedin
+      if (filters.linkedin) {
+        if (filters.linkedin === 'known') {
+          filtered = filtered.filter(contact => 
+            contact.linkedin && contact.linkedin.trim() !== ''
+          );
+        } else if (filters.linkedin === 'blank') {
+          filtered = filtered.filter(contact => 
+            !contact.linkedin || contact.linkedin.trim() === ''
+          );
+        }
+      }
+      
+      // Filter by notes
+      if (filters.notes) {
+        filtered = filtered.filter(contact => 
+          contact.notes && 
+          contact.notes.toLowerCase().includes(filters.notes.toLowerCase())
+        );
+      }
+      
+      setFilteredContacts(filtered);
+    } else {
+      setFilteredContacts([]);
+    }
+  }, [contacts, filters]);
+
+  // Handle filter changes
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      businessSector: '',
+      company: '',
+      linkedin: '',
+      notes: ''
+    });
+  };
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -127,98 +202,148 @@ const Contacts = () => {
 
   return (
     <div style={styles.page}>
-      <div style={styles.container}>
-        {/* Header */}
-        <div style={styles.header}>
-          <h1 style={styles.title}>Contacts</h1>
-          <p style={styles.subtitle}>
-            {contacts.length === 0 
-              ? 'No contacts found' 
-              : `${contacts.length} contact${contacts.length === 1 ? '' : 's'} found`
-            }
-          </p>
+      <div style={styles.layoutRow}>
+        {/* Filter Panel on the far left */}
+        <div style={styles.filterPanel}>
+          <div style={styles.filterHeader}>
+            <h3 style={styles.filterTitle}>Filters</h3>
+            <button 
+              onClick={clearFilters}
+              style={styles.clearFiltersButton}
+              disabled={!Object.values(filters).some(filter => filter !== '')}
+            >
+              Clear All
+            </button>
+          </div>
+          <div style={styles.filterSection}>
+            <label style={styles.filterLabel}>Business Sector</label>
+            <input
+              type="text"
+              value={filters.businessSector}
+              onChange={(e) => handleFilterChange('businessSector', e.target.value)}
+              placeholder="Filter by sector..."
+              style={styles.filterInput}
+            />
+          </div>
+          <div style={styles.filterSection}>
+            <label style={styles.filterLabel}>Company</label>
+            <input
+              type="text"
+              value={filters.company}
+              onChange={(e) => handleFilterChange('company', e.target.value)}
+              placeholder="Filter by company..."
+              style={styles.filterInput}
+            />
+          </div>
+          <div style={styles.filterSection}>
+            <label style={styles.filterLabel}>LinkedIn</label>
+            <select
+              value={filters.linkedin}
+              onChange={(e) => handleFilterChange('linkedin', e.target.value)}
+              style={styles.filterSelect}
+            >
+              <option value="">All Contacts</option>
+              <option value="known">Known</option>
+              <option value="blank">Blank</option>
+            </select>
+          </div>
+          <div style={styles.filterSection}>
+            <label style={styles.filterLabel}>Notes</label>
+            <input
+              type="text"
+              value={filters.notes}
+              onChange={(e) => handleFilterChange('notes', e.target.value)}
+              placeholder="Filter by notes..."
+              style={styles.filterInput}
+            />
+          </div>
         </div>
-
-        {/* Contacts List */}
-        <div style={styles.content}>
-          {contacts.length === 0 ? (
-            <div style={styles.emptyCard}>
-              <h2 style={styles.cardTitle}>No Contacts Yet</h2>
-              <p style={styles.cardText}>
-                Your contacts will appear here once they're added to the database.
-              </p>
-              <button style={styles.button}>Add Your First Contact</button>
-            </div>
-          ) : (
-            <div style={styles.contactsGrid}>
-              {contacts.map((contact) => (
-                <div key={contact.id} style={styles.contactCard}>
-                  <div style={styles.contactHeader}>
-                    <h3 style={styles.contactName}>
-                      {contact.name || 'Unnamed Contact'}
-                    </h3>
-                    {contact.company && (
-                      <span style={styles.contactCompany}>{contact.company}</span>
-                    )}
+        {/* Main Content (header + grid) */}
+        <div style={styles.mainContentOuter}>
+          <div style={styles.header}>
+            <h1 style={styles.title}>Contacts</h1>
+            <p style={styles.subtitle}>
+              {filteredContacts.length === 0 
+                ? 'No contacts found' 
+                : `${filteredContacts.length} of ${contacts.length} contact${filteredContacts.length === 1 ? '' : 's'} shown`
+              }
+            </p>
+          </div>
+          <div style={styles.contactsContainer}>
+            {filteredContacts.length === 0 ? (
+              <div style={styles.emptyCard}>
+                <h2 style={styles.cardTitle}>
+                  {contacts.length === 0 ? 'No Contacts Yet' : 'No Matching Contacts'}
+                </h2>
+                <p style={styles.cardText}>
+                  {contacts.length === 0 
+                    ? 'Your contacts will appear here once they\'re added to the database.'
+                    : 'Try adjusting your filters to see more results.'
+                  }
+                </p>
+                {contacts.length === 0 && (
+                  <button style={styles.button}>Add Your First Contact</button>
+                )}
+              </div>
+            ) : (
+              <div style={styles.contactsGrid}>
+                {filteredContacts.map((contact) => (
+                  <div key={contact.id} style={styles.contactCard}>
+                    <div style={styles.contactHeader}>
+                      <h3 style={styles.contactName}>
+                        {contact.name || 'Unnamed Contact'}
+                      </h3>
+                      {contact.company && (
+                        <span style={styles.contactCompany}>{contact.company}</span>
+                      )}
+                    </div>
+                    <div style={styles.contactDetails}>
+                      {contact.email && (
+                        <div style={styles.contactItem}>
+                          <span style={styles.contactLabel}>Email:</span>
+                          <a 
+                            href={`mailto:${contact.email}`} 
+                            style={styles.contactLink}
+                          >
+                            {contact.email}
+                          </a>
+                        </div>
+                      )}
+                      {contact.phone && (
+                        <div style={styles.contactItem}>
+                          <span style={styles.contactLabel}>Phone:</span>
+                          <a 
+                            href={`tel:${contact.phone}`} 
+                            style={styles.contactLink}
+                          >
+                            {formatPhone(contact.phone)}
+                          </a>
+                        </div>
+                      )}
+                      {contact.businessSector && (
+                        <div style={styles.contactItem}>
+                          <span style={styles.contactLabel}>Sector:</span>
+                          <span style={styles.contactText}>{contact.businessSector}</span>
+                        </div>
+                      )}
+                      {contact.createdAt && (
+                        <div style={styles.contactItem}>
+                          <span style={styles.contactLabel}>Added:</span>
+                          <span style={styles.contactText}>
+                            {formatDate(contact.createdAt)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div style={styles.contactActions}>
+                      <button style={styles.actionButton}>Edit</button>
+                      <button style={styles.actionButton}>Details</button>
+                    </div>
                   </div>
-                  
-                  <div style={styles.contactDetails}>
-                    {contact.email && (
-                      <div style={styles.contactItem}>
-                        <span style={styles.contactLabel}>Email:</span>
-                        <a 
-                          href={`mailto:${contact.email}`} 
-                          style={styles.contactLink}
-                        >
-                          {contact.email}
-                        </a>
-                      </div>
-                    )}
-                    
-                    {contact.phone && (
-                      <div style={styles.contactItem}>
-                        <span style={styles.contactLabel}>Phone:</span>
-                        <a 
-                          href={`tel:${contact.phone}`} 
-                          style={styles.contactLink}
-                        >
-                          {formatPhone(contact.phone)}
-                        </a>
-                      </div>
-                    )}
-                    
-                    {contact.businessSector && (
-                      <div style={styles.contactItem}>
-                        <span style={styles.contactLabel}>Sector:</span>
-                        <span style={styles.contactText}>{contact.businessSector}</span>
-                      </div>
-                    )}
-                    
-                    {contact.createdAt && (
-                      <div style={styles.contactItem}>
-                        <span style={styles.contactLabel}>Added:</span>
-                        <span style={styles.contactText}>
-                          {formatDate(contact.createdAt)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div style={styles.contactActions}>
-                    <button style={styles.actionButton}>Edit</button>
-                    <button style={styles.actionButton}>Details</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Navigation */}
-        <div style={styles.navigation}>
-          <Link to="/" style={styles.navButton}>
-            ← Back to Chat
-          </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -228,16 +353,23 @@ const Contacts = () => {
 const styles = {
   page: {
     minHeight: '100vh',
-    backgroundColor: '#f8f6f1',
+    background: '#faf8f3',
     fontFamily: 'Georgia, serif',
-    padding: '20px',
-  },
-  container: {
-    maxWidth: '1200px',
-    margin: '0 auto',
     display: 'flex',
     flexDirection: 'column',
-    gap: '30px',
+    alignItems: 'stretch',
+  },
+  container: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: '1600px',
+    margin: '0 auto',
+    padding: '40px 0',
+    gap: '40px',
+    boxSizing: 'border-box',
   },
   header: {
     textAlign: 'center',
@@ -258,9 +390,7 @@ const styles = {
     fontStyle: 'italic',
   },
   content: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
+    marginTop: '30px',
   },
   loadingCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
@@ -319,8 +449,11 @@ const styles = {
   },
   contactsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-    gap: '20px',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '32px',
+    width: '100%',
+    maxWidth: '1100px',
+    margin: '0 auto',
   },
   contactCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
@@ -441,6 +574,131 @@ const styles = {
     fontFamily: 'Georgia, serif',
     backdropFilter: 'blur(10px)',
     WebkitBackdropFilter: 'blur(10px)',
+  },
+  mainContentOuter: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '30px',
+    minWidth: 0,
+  },
+  filterPanel: {
+    width: '280px',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    borderRadius: '16px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+    padding: '25px',
+    height: 'fit-content',
+    position: 'sticky',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    marginLeft: '0',
+    marginRight: '0',
+  },
+  filterHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+    paddingBottom: '15px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+  },
+  filterTitle: {
+    fontSize: '1.3rem',
+    fontWeight: '400',
+    color: '#2c2c2c',
+    margin: '0',
+    fontFamily: 'Georgia, serif',
+  },
+  clearFiltersButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    color: '#ffffff',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    padding: '6px 12px',
+    fontSize: '11px',
+    fontWeight: '400',
+    cursor: 'pointer',
+    borderRadius: '6px',
+    transition: 'all 0.3s ease',
+    fontFamily: 'Georgia, serif',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    ':hover': {
+      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      transform: 'translateY(-1px)',
+    },
+    ':disabled': {
+      opacity: 0.5,
+      cursor: 'not-allowed',
+    },
+  },
+  filterSection: {
+    marginBottom: '15px',
+  },
+  filterLabel: {
+    display: 'block',
+    fontSize: '0.9rem',
+    color: '#666',
+    fontWeight: '500',
+    marginBottom: '5px',
+    fontFamily: 'Georgia, serif',
+  },
+  filterInput: {
+    width: '100%',
+    padding: '10px 12px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: '8px',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: '#2c2c2c',
+    fontSize: '0.9rem',
+    fontFamily: 'Georgia, serif',
+    transition: 'all 0.3s ease',
+    boxSizing: 'border-box',
+    outline: 'none',
+    ':focus': {
+      border: '1px solid rgba(0, 0, 0, 0.3)',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      boxShadow: '0 0 0 3px rgba(0, 0, 0, 0.1)',
+    },
+  },
+  filterSelect: {
+    width: '100%',
+    padding: '10px 12px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: '8px',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: '#2c2c2c',
+    fontSize: '0.9rem',
+    fontFamily: 'Georgia, serif',
+    transition: 'all 0.3s ease',
+    boxSizing: 'border-box',
+    outline: 'none',
+    ':focus': {
+      border: '1px solid rgba(0, 0, 0, 0.3)',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      boxShadow: '0 0 0 3px rgba(0, 0, 0, 0.1)',
+    },
+  },
+  contactsContainer: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  layoutRow: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    maxWidth: 'none',
+    margin: '0',
+    padding: '40px 0 40px 0',
+    gap: '40px',
+    boxSizing: 'border-box',
   },
 };
 
