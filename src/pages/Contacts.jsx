@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import app from '../firebase';
+import ContactModal from '../components/ContactModal';
 
 const Contacts = () => {
   const [contacts, setContacts] = useState([]);
@@ -17,6 +18,11 @@ const Contacts = () => {
     notes: ''
   });
   const [filteredContacts, setFilteredContacts] = useState([]);
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalContact, setModalContact] = useState(null);
+  const [modalMode, setModalMode] = useState('view'); // 'view' or 'edit'
 
   console.log('Contacts component loaded');
 
@@ -162,6 +168,41 @@ const Contacts = () => {
     if (!timestamp) return 'N/A';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString();
+  };
+
+  // Modal handlers
+  const handleOpenModal = (contact, mode = 'view') => {
+    setModalContact(contact);
+    setModalMode(mode);
+    setModalOpen(true);
+  };
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setModalContact(null);
+  };
+  const handleSaveModal = async (updatedContact) => {
+    if (!updatedContact.id) return;
+    try {
+      const contactRef = doc(db, 'contacts', updatedContact.id);
+      // Remove the name field before saving (it's derived)
+      const { name, ...contactData } = updatedContact;
+      await updateDoc(contactRef, contactData);
+      setContacts(prevContacts =>
+        prevContacts.map(c => {
+          if (c.id === updatedContact.id) {
+            const fullName = (updatedContact.firstName && updatedContact.lastName)
+              ? `${updatedContact.firstName} ${updatedContact.lastName}`
+              : updatedContact.firstName || updatedContact.lastName || 'Unnamed Contact';
+            return { ...c, ...updatedContact, name: fullName };
+          }
+          return c;
+        })
+      );
+    } catch (err) {
+      alert('Failed to save contact: ' + err.message);
+    }
+    setModalOpen(false);
+    setModalContact(null);
   };
 
   if (loading) {
@@ -336,8 +377,8 @@ const Contacts = () => {
                       )}
                     </div>
                     <div style={styles.contactActions}>
-                      <button style={styles.actionButton}>Edit</button>
-                      <button style={styles.actionButton}>Details</button>
+                      <button style={styles.actionButton} onClick={() => handleOpenModal(contact, 'edit')}>Edit</button>
+                      <button style={styles.actionButton} onClick={() => handleOpenModal(contact, 'view')}>Details</button>
                     </div>
                   </div>
                 ))}
@@ -346,6 +387,14 @@ const Contacts = () => {
           </div>
         </div>
       </div>
+      {/* Contact Modal */}
+      <ContactModal
+        open={modalOpen}
+        onClose={handleCloseModal}
+        contact={modalContact}
+        mode={modalMode}
+        onSave={handleSaveModal}
+      />
     </div>
   );
 };
