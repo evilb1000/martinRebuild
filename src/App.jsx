@@ -1,12 +1,15 @@
 import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import ChatBox from './components/ChatBox';
+import Contacts from './pages/Contacts';
+import Listings from './pages/Listings';
 
-const App = () => {
+const HomePage = () => {
   return (
     <div style={styles.app}>
       <div style={styles.container}>
         {/* AI Assistant Label */}
-        <h1 style={styles.title}>AI Assistant</h1>
+        <h1 style={styles.title}>How Can I Help</h1>
         
         {/* Chat Box */}
         <div style={styles.chatContainer}>
@@ -15,11 +18,27 @@ const App = () => {
         
         {/* Action Buttons */}
         <div style={styles.buttonContainer}>
-          <button style={styles.button}>Contacts</button>
-          <button style={styles.button}>Listings</button>
+          <Link to="/contacts" style={styles.linkButton}>
+            <button style={styles.button}>Contacts</button>
+          </Link>
+          <Link to="/listings" style={styles.linkButton}>
+            <button style={styles.button}>Listings</button>
+          </Link>
         </div>
       </div>
     </div>
+  );
+};
+
+const App = () => {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/contacts" element={<Contacts />} />
+        <Route path="/listings" element={<Listings />} />
+      </Routes>
+    </Router>
   );
 };
 
@@ -32,6 +51,8 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '20px',
+    position: 'relative',
+    overflow: 'hidden',
   },
   container: {
     display: 'flex',
@@ -39,6 +60,8 @@ const styles = {
     alignItems: 'center',
     maxWidth: '600px',
     width: '100%',
+    position: 'relative',
+    zIndex: 2,
   },
   title: {
     fontSize: '2.5rem',
@@ -47,10 +70,18 @@ const styles = {
     marginBottom: '30px',
     textAlign: 'center',
     letterSpacing: '1px',
+    textShadow: '0 2px 4px rgba(0,0,0,0.1)',
   },
   chatContainer: {
     width: '100%',
     marginBottom: '30px',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    borderRadius: '16px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+    padding: '20px',
   },
   buttonContainer: {
     display: 'flex',
@@ -58,20 +89,34 @@ const styles = {
     justifyContent: 'center',
     width: '100%',
     maxWidth: '400px', // Match chat box width
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    borderRadius: '16px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+    padding: '20px',
   },
   button: {
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     color: '#ffffff',
     border: 'none',
     padding: '15px 30px',
     fontSize: '1.1rem',
     fontWeight: '400',
     cursor: 'pointer',
-    borderRadius: '6px',
+    borderRadius: '12px',
     transition: 'all 0.3s ease',
     fontFamily: 'Georgia, serif',
     letterSpacing: '0.5px',
     minWidth: '120px',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+  },
+  linkButton: {
+    textDecoration: 'none',
+    display: 'inline-block',
   },
 };
 
@@ -79,14 +124,25 @@ const styles = {
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
   button:hover {
-    background-color: #333333 !important;
+    background-color: rgba(0, 0, 0, 0.9) !important;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    border-color: rgba(255, 255, 255, 0.4);
   }
   
   button:active {
     transform: translateY(0);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  }
+  
+  .chat-container {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  
+  .button-container {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 `;
 document.head.appendChild(styleSheet);

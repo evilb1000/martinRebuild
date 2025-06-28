@@ -20,7 +20,7 @@ const ChatBox = () => {
     setResponse('');
 
     try {
-      const result = await axios.post('http://localhost:3001/chat', {
+      const result = await axios.post('https://us-central1-lod-crm-systems.cloudfunctions.net/chat', {
         message: message
       });
       
@@ -145,12 +145,14 @@ const styles = {
   },
   responseArea: {
     minHeight: '200px',
-    border: '1px solid #e0d8c8',
-    borderRadius: '8px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: '12px',
     padding: '20px',
     marginBottom: '20px',
-    backgroundColor: '#ffffff',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.05)',
   },
   loading: {
     display: 'flex',
@@ -162,26 +164,28 @@ const styles = {
   spinner: {
     width: '20px',
     height: '20px',
-    border: '2px solid #f3f3f3',
-    borderTop: '2px solid #000000',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderTop: '2px solid rgba(0, 0, 0, 0.8)',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
     marginRight: '10px',
   },
   error: {
     color: '#d32f2f',
-    backgroundColor: '#ffebee',
+    backgroundColor: 'rgba(255, 235, 238, 0.8)',
     padding: '12px',
-    borderRadius: '6px',
-    border: '1px solid #ffcdd2',
+    borderRadius: '8px',
+    border: '1px solid rgba(255, 205, 210, 0.6)',
     fontSize: '14px',
+    backdropFilter: 'blur(5px)',
+    WebkitBackdropFilter: 'blur(5px)',
   },
   response: {
     color: '#2c2c2c',
     lineHeight: '1.6',
   },
   placeholder: {
-    color: '#999',
+    color: '#666',
     textAlign: 'center',
     fontStyle: 'italic',
     fontSize: '16px',
@@ -196,21 +200,24 @@ const styles = {
   textarea: {
     flex: 1,
     padding: '15px',
-    border: '1px solid #e0d8c8',
-    borderRadius: '6px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: '8px',
     resize: 'vertical',
     minHeight: '60px',
     fontFamily: 'Georgia, serif',
     fontSize: '14px',
-    backgroundColor: '#ffffff',
-    transition: 'border-color 0.3s ease',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(5px)',
+    WebkitBackdropFilter: 'blur(5px)',
+    transition: 'all 0.3s ease',
+    color: '#2c2c2c',
   },
   button: {
     padding: '15px 25px',
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     color: 'white',
-    border: 'none',
-    borderRadius: '6px',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '14px',
     fontWeight: '400',
@@ -218,17 +225,21 @@ const styles = {
     alignSelf: 'flex-end',
     transition: 'all 0.3s ease',
     minWidth: '80px',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
   },
   clearButton: {
     marginLeft: '10px',
     padding: '4px 8px',
-    backgroundColor: '#d32f2f',
+    backgroundColor: 'rgba(211, 47, 47, 0.8)',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '12px',
     fontFamily: 'Georgia, serif',
+    backdropFilter: 'blur(5px)',
+    WebkitBackdropFilter: 'blur(5px)',
   },
   responseText: {
     whiteSpace: 'pre-wrap',
