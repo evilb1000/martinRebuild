@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { handleAIContactAction, isContactActionCommand, processContactAction } from '../services/aiContactActions';
 
 const ChatBox = () => {
   const [message, setMessage] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [lastActionType, setLastActionType] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,30 +20,49 @@ const ChatBox = () => {
     setLoading(true);
     setError('');
     setResponse('');
+    setLastActionType('');
 
     try {
-      const result = await axios.post('https://us-central1-lod-crm-systems.cloudfunctions.net/chat', {
-        message: message
-      });
-      
-      // Better response handling to prevent crashes
       let responseText = '';
-      if (result.data) {
-        if (typeof result.data === 'string') {
-          responseText = result.data;
-        } else if (result.data.response) {
-          responseText = result.data.response;
-        } else if (result.data.message) {
-          responseText = result.data.message;
-        } else if (result.data.text) {
-          responseText = result.data.text;
+      let actionType = '';
+
+      // Check if this is a contact action command
+      if (isContactActionCommand(message)) {
+        // Use AI Contact Actions endpoint
+        const result = await processContactAction(message);
+        
+        if (result.success) {
+          responseText = result.message;
+          actionType = 'contact_action';
         } else {
-          // Fallback: stringify the entire response for debugging
-          responseText = JSON.stringify(result.data, null, 2);
+          throw new Error(result.error);
         }
+      } else {
+        // Use regular chat endpoint
+        const result = await axios.post('https://us-central1-lod-crm-systems.cloudfunctions.net/chat', {
+          message: message
+        });
+        
+        // Better response handling to prevent crashes
+        if (result.data) {
+          if (typeof result.data === 'string') {
+            responseText = result.data;
+          } else if (result.data.response) {
+            responseText = result.data.response;
+          } else if (result.data.message) {
+            responseText = result.data.message;
+          } else if (result.data.text) {
+            responseText = result.data.text;
+          } else {
+            // Fallback: stringify the entire response for debugging
+            responseText = JSON.stringify(result.data, null, 2);
+          }
+        }
+        actionType = 'chat';
       }
       
       setResponse(responseText);
+      setLastActionType(actionType);
       setMessage('');
     } catch (err) {
       console.error('Chat error:', err);
@@ -102,7 +123,14 @@ const ChatBox = () => {
         
         {response && !loading && (
           <div style={styles.response}>
-            <strong>Response:</strong>
+            <div style={styles.responseHeader}>
+              <strong>
+                {lastActionType === 'contact_action' ? 'Contact Action' : 'Response'}:
+              </strong>
+              {lastActionType === 'contact_action' && (
+                <span style={styles.actionBadge}>AI Contact Management</span>
+              )}
+            </div>
             <pre style={styles.responseText}>{response}</pre>
           </div>
         )}
@@ -247,6 +275,19 @@ const styles = {
     fontFamily: 'Georgia, serif',
     margin: '10px 0 0 0',
     fontSize: '14px',
+  },
+  responseHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '10px',
+  },
+  actionBadge: {
+    padding: '4px 8px',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    color: 'white',
+    borderRadius: '4px',
+    fontSize: '12px',
   },
 };
 

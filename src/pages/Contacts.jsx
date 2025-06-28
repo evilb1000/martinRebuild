@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, updateDoc, doc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import app from '../firebase';
 import ContactModal from '../components/ContactModal';
+import CreateListModal from '../components/CreateListModal';
 
 const Contacts = () => {
+  console.log('Contacts component rendering');
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -24,10 +26,20 @@ const Contacts = () => {
   const [modalContact, setModalContact] = useState(null);
   const [modalMode, setModalMode] = useState('view'); // 'view' or 'edit'
 
+  const [listModalOpen, setListModalOpen] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
+
+  const [listSelectionMode, setListSelectionMode] = useState(false);
+  const [selectedContactIds, setSelectedContactIds] = useState([]);
+
+  const filterPanelRef = useRef(null);
+  const mainContentRef = useRef(null);
+
   console.log('Contacts component loaded');
 
   // Filter logic
   useEffect(() => {
+    console.log('useEffect running');
     if (contacts.length > 0) {
       let filtered = [...contacts];
       
@@ -205,13 +217,84 @@ const Contacts = () => {
     setModalContact(null);
   };
 
+  const handleStartListSelection = () => {
+    setListSelectionMode(true);
+    setSelectedContactIds([]);
+  };
+  const handleCancelListSelection = () => {
+    setListSelectionMode(false);
+    setSelectedContactIds([]);
+  };
+  const handleContinueListSelection = () => {
+    setListModalOpen(true);
+  };
+
+  const handleContactCardClick = (contactId) => {
+    if (!listSelectionMode) return;
+    setSelectedContactIds((prev) =>
+      prev.includes(contactId)
+        ? prev.filter((id) => id !== contactId)
+        : [...prev, contactId]
+    );
+  };
+
+  const handleCloseListModal = () => {
+    setListModalOpen(false);
+    setListSelectionMode(false);
+    setSelectedContactIds([]);
+  };
+
+  const handleSaveList = async ({ name, contactIds }) => {
+    setListLoading(true);
+    try {
+      await addDoc(collection(db, 'contactLists'), {
+        name,
+        contactIds,
+        createdAt: serverTimestamp(),
+      });
+      setListModalOpen(false);
+      setListSelectionMode(false);
+      setSelectedContactIds([]);
+      // Optionally show a success message or refresh lists
+    } catch (err) {
+      alert('Failed to create list: ' + err.message);
+    } finally {
+      setListLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log('useEffect running');
+    if (filterPanelRef.current && mainContentRef.current) {
+      console.log('Filter Panel parent:', filterPanelRef.current.parentNode);
+      console.log('Main Content parent:', mainContentRef.current.parentNode);
+      console.log('Filter Panel bounding rect:', filterPanelRef.current.getBoundingClientRect());
+      console.log('Main Content bounding rect:', mainContentRef.current.getBoundingClientRect());
+      console.log('Filter Panel computed style:', window.getComputedStyle(filterPanelRef.current));
+      console.log('Main Content computed style:', window.getComputedStyle(mainContentRef.current));
+    } else {
+      if (!filterPanelRef.current) console.log('filterPanelRef.current is null');
+      if (!mainContentRef.current) console.log('mainContentRef.current is null');
+    }
+  }); // No dependency array, run after every render
+
   if (loading) {
     return (
       <div style={styles.page}>
         <div style={styles.container}>
           <div style={styles.header}>
-            <h1 style={styles.title}>Contacts</h1>
-            <p style={styles.subtitle}>Loading your contacts...</p>
+            <div style={styles.headerTop}>
+              <Link to="/" style={styles.backButton}>
+                Home
+              </Link>
+            </div>
+            <button style={styles.createListButton}>
+              Create List
+            </button>
+          </div>
+          <div style={styles.contactsHeadingBlock}>
+            <h1 style={styles.contactsHeading}>Contacts</h1>
+            <p style={styles.contactsSubtitle}>Loading your contacts...</p>
           </div>
           <div style={styles.loadingCard}>
             <div style={styles.loadingSpinner}></div>
@@ -227,8 +310,18 @@ const Contacts = () => {
       <div style={styles.page}>
         <div style={styles.container}>
           <div style={styles.header}>
-            <h1 style={styles.title}>Contacts</h1>
-            <p style={styles.subtitle}>Something went wrong</p>
+            <div style={styles.headerTop}>
+              <Link to="/" style={styles.backButton}>
+                Home
+              </Link>
+            </div>
+            <button style={styles.createListButton}>
+              Create List
+            </button>
+          </div>
+          <div style={styles.contactsHeadingBlock}>
+            <h1 style={styles.contactsHeading}>Contacts</h1>
+            <p style={styles.contactsSubtitle}>Something went wrong</p>
           </div>
           <div style={styles.errorCard}>
             <p style={styles.errorText}>{error}</p>
@@ -243,73 +336,94 @@ const Contacts = () => {
 
   return (
     <div style={styles.page}>
-      <div style={styles.layoutRow}>
-        {/* Filter Panel on the far left */}
-        <div style={styles.filterPanel}>
-          <div style={styles.filterHeader}>
-            <h3 style={styles.filterTitle}>Filters</h3>
-            <button 
-              onClick={clearFilters}
-              style={styles.clearFiltersButton}
-              disabled={!Object.values(filters).some(filter => filter !== '')}
-            >
-              Clear All
-            </button>
-          </div>
-          <div style={styles.filterSection}>
-            <label style={styles.filterLabel}>Business Sector</label>
-            <input
-              type="text"
-              value={filters.businessSector}
-              onChange={(e) => handleFilterChange('businessSector', e.target.value)}
-              placeholder="Filter by sector..."
-              style={styles.filterInput}
-            />
-          </div>
-          <div style={styles.filterSection}>
-            <label style={styles.filterLabel}>Company</label>
-            <input
-              type="text"
-              value={filters.company}
-              onChange={(e) => handleFilterChange('company', e.target.value)}
-              placeholder="Filter by company..."
-              style={styles.filterInput}
-            />
-          </div>
-          <div style={styles.filterSection}>
-            <label style={styles.filterLabel}>LinkedIn</label>
-            <select
-              value={filters.linkedin}
-              onChange={(e) => handleFilterChange('linkedin', e.target.value)}
-              style={styles.filterSelect}
-            >
-              <option value="">All Contacts</option>
-              <option value="known">Known</option>
-              <option value="blank">Blank</option>
-            </select>
-          </div>
-          <div style={styles.filterSection}>
-            <label style={styles.filterLabel}>Notes</label>
-            <input
-              type="text"
-              value={filters.notes}
-              onChange={(e) => handleFilterChange('notes', e.target.value)}
-              placeholder="Filter by notes..."
-              style={styles.filterInput}
-            />
-          </div>
+      <div style={styles.headerTop}>
+        <Link to="/" style={styles.backButton}>
+          Home
+        </Link>
+      </div>
+      {!listSelectionMode ? (
+        <button style={styles.createListButton} onClick={handleStartListSelection}>
+          Create List
+        </button>
+      ) : (
+        <div style={styles.listSelectionActions}>
+          <button style={styles.cancelListButton} onClick={handleCancelListSelection}>
+            Cancel
+          </button>
+          <button
+            style={styles.continueListButton}
+            onClick={handleContinueListSelection}
+            disabled={selectedContactIds.length === 0}
+          >
+            Continue
+          </button>
         </div>
-        {/* Main Content (header + grid) */}
-        <div style={styles.mainContentOuter}>
-          <div style={styles.header}>
-            <h1 style={styles.title}>Contacts</h1>
-            <p style={styles.subtitle}>
-              {filteredContacts.length === 0 
-                ? 'No contacts found' 
-                : `${filteredContacts.length} of ${contacts.length} contact${filteredContacts.length === 1 ? '' : 's'} shown`
-              }
-            </p>
-          </div>
+      )}
+      <div style={styles.filterPanel}>
+        <div style={styles.filterHeader}>
+          <h3 style={styles.filterTitle}>Filters</h3>
+          <button 
+            onClick={clearFilters}
+            style={styles.clearFiltersButton}
+            disabled={!Object.values(filters).some(filter => filter !== '')}
+          >
+            Clear All
+          </button>
+        </div>
+        <div style={styles.filterSection}>
+          <label style={styles.filterLabel}>Business Sector</label>
+          <input
+            type="text"
+            value={filters.businessSector}
+            onChange={(e) => handleFilterChange('businessSector', e.target.value)}
+            placeholder="Filter by sector..."
+            style={styles.filterInput}
+          />
+        </div>
+        <div style={styles.filterSection}>
+          <label style={styles.filterLabel}>Company</label>
+          <input
+            type="text"
+            value={filters.company}
+            onChange={(e) => handleFilterChange('company', e.target.value)}
+            placeholder="Filter by company..."
+            style={styles.filterInput}
+          />
+        </div>
+        <div style={styles.filterSection}>
+          <label style={styles.filterLabel}>LinkedIn</label>
+          <select
+            value={filters.linkedin}
+            onChange={(e) => handleFilterChange('linkedin', e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="">All Contacts</option>
+            <option value="known">Known</option>
+            <option value="blank">Blank</option>
+          </select>
+        </div>
+        <div style={styles.filterSection}>
+          <label style={styles.filterLabel}>Notes</label>
+          <input
+            type="text"
+            value={filters.notes}
+            onChange={(e) => handleFilterChange('notes', e.target.value)}
+            placeholder="Filter by notes..."
+            style={styles.filterInput}
+          />
+        </div>
+      </div>
+      <div style={styles.mainContentOuter}>
+        <div style={styles.contactsHeadingBlock}>
+          <h1 style={styles.contactsHeading}>Contacts</h1>
+          <p style={styles.contactsSubtitle}>
+            {filteredContacts.length === 0 
+              ? 'No contacts found' 
+              : `${filteredContacts.length} of ${contacts.length} contact${filteredContacts.length === 1 ? '' : 's'} shown`
+            }
+          </p>
+        </div>
+        <div style={styles.layoutRow}>
           <div style={styles.contactsContainer}>
             {filteredContacts.length === 0 ? (
               <div style={styles.emptyCard}>
@@ -329,7 +443,22 @@ const Contacts = () => {
             ) : (
               <div style={styles.contactsGrid}>
                 {filteredContacts.map((contact) => (
-                  <div key={contact.id} style={styles.contactCard}>
+                  <div
+                    key={contact.id}
+                    style={{
+                      ...styles.contactCard,
+                      ...(listSelectionMode && selectedContactIds.includes(contact.id) ? styles.contactCardSelected : {}),
+                      cursor: listSelectionMode ? 'pointer' : 'default',
+                      opacity: !listSelectionMode ? 1 : undefined,
+                    }}
+                    onClick={() => handleContactCardClick(contact.id)}
+                    tabIndex={listSelectionMode ? 0 : -1}
+                    role={listSelectionMode ? 'button' : undefined}
+                    aria-pressed={listSelectionMode ? selectedContactIds.includes(contact.id) : undefined}
+                    onKeyDown={listSelectionMode ? (e => {
+                      if (e.key === 'Enter' || e.key === ' ') handleContactCardClick(contact.id);
+                    }) : undefined}
+                  >
                     <div style={styles.contactHeader}>
                       <h3 style={styles.contactName}>
                         {contact.name || 'Unnamed Contact'}
@@ -342,23 +471,13 @@ const Contacts = () => {
                       {contact.email && (
                         <div style={styles.contactItem}>
                           <span style={styles.contactLabel}>Email:</span>
-                          <a 
-                            href={`mailto:${contact.email}`} 
-                            style={styles.contactLink}
-                          >
-                            {contact.email}
-                          </a>
+                          <span style={styles.contactLink}>{contact.email}</span>
                         </div>
                       )}
                       {contact.phone && (
                         <div style={styles.contactItem}>
                           <span style={styles.contactLabel}>Phone:</span>
-                          <a 
-                            href={`tel:${contact.phone}`} 
-                            style={styles.contactLink}
-                          >
-                            {formatPhone(contact.phone)}
-                          </a>
+                          <span style={styles.contactLink}>{formatPhone(contact.phone)}</span>
                         </div>
                       )}
                       {contact.businessSector && (
@@ -387,13 +506,19 @@ const Contacts = () => {
           </div>
         </div>
       </div>
-      {/* Contact Modal */}
       <ContactModal
         open={modalOpen}
         onClose={handleCloseModal}
         contact={modalContact}
         mode={modalMode}
         onSave={handleSaveModal}
+      />
+      <CreateListModal
+        open={listModalOpen}
+        contacts={contacts.filter(c => selectedContactIds.includes(c.id))}
+        onClose={handleCloseListModal}
+        onSave={handleSaveList}
+        loading={listLoading}
       />
     </div>
   );
@@ -514,6 +639,9 @@ const styles = {
     padding: '25px',
     transition: 'transform 0.3s ease, box-shadow 0.3s ease',
   },
+  contactCardSelected: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
   contactHeader: {
     marginBottom: '20px',
     paddingBottom: '15px',
@@ -630,8 +758,12 @@ const styles = {
     flexDirection: 'column',
     gap: '30px',
     minWidth: 0,
+    marginLeft: '360px', // Increased to clear filter panel and add extra space
   },
   filterPanel: {
+    position: 'fixed',
+    top: '140px',
+    left: '32px',
     width: '280px',
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     backdropFilter: 'blur(20px)',
@@ -641,11 +773,7 @@ const styles = {
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
     padding: '25px',
     height: 'fit-content',
-    position: 'sticky',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    marginLeft: '0',
-    marginRight: '0',
+    zIndex: 100,
   },
   filterHeader: {
     display: 'flex',
@@ -748,6 +876,107 @@ const styles = {
     padding: '40px 0 40px 0',
     gap: '40px',
     boxSizing: 'border-box',
+  },
+  headerTop: {
+    height: '40px',
+    marginBottom: '20px',
+  },
+  backButton: {
+    position: 'fixed',
+    top: '32px',
+    left: '32px',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    color: '#ffffff',
+    textDecoration: 'none',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    padding: '12px 25px',
+    fontSize: '16px',
+    fontWeight: '400',
+    cursor: 'pointer',
+    borderRadius: '8px',
+    transition: 'all 0.3s ease',
+    fontFamily: 'Georgia, serif',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    zIndex: 1000,
+  },
+  createListButton: {
+    position: 'fixed',
+    top: '80px',
+    left: '32px',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    color: '#ffffff',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    padding: '12px 25px',
+    fontSize: '16px',
+    fontWeight: '400',
+    cursor: 'pointer',
+    borderRadius: '8px',
+    transition: 'all 0.3s ease',
+    fontFamily: 'Georgia, serif',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    zIndex: 1000,
+  },
+  contactsHeadingBlock: {
+    width: '350px',
+    zIndex: 1000,
+    textAlign: 'left',
+    marginBottom: '24px',
+  },
+  contactsHeading: {
+    fontSize: '2rem',
+    fontWeight: '400',
+    color: '#2c2c2c',
+    margin: '0 0 10px 0',
+    letterSpacing: '1px',
+    textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+  },
+  contactsSubtitle: {
+    fontSize: '1.2rem',
+    color: '#666',
+    margin: 0,
+    fontStyle: 'italic',
+  },
+  listSelectionActions: {
+    position: 'fixed',
+    top: '32px',
+    right: '32px',
+    display: 'flex',
+    gap: '10px',
+    zIndex: 1100,
+  },
+  cancelListButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    color: '#ffffff',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    padding: '8px 16px',
+    fontSize: '12px',
+    fontWeight: '400',
+    cursor: 'pointer',
+    borderRadius: '6px',
+    transition: 'all 0.3s ease',
+    fontFamily: 'Georgia, serif',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+  },
+  continueListButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    color: '#ffffff',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    padding: '8px 16px',
+    fontSize: '12px',
+    fontWeight: '400',
+    cursor: 'pointer',
+    borderRadius: '6px',
+    transition: 'all 0.3s ease',
+    fontFamily: 'Georgia, serif',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    ':disabled': {
+      opacity: 0.5,
+      cursor: 'not-allowed',
+    },
   },
 };
 
