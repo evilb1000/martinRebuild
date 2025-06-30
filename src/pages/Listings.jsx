@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link } from 'react-router-dom';
 
@@ -11,6 +11,14 @@ const Listings = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editFields, setEditFields] = useState({});
+  const [contactLists, setContactLists] = useState([]);
+  const [contactListsLoading, setContactListsLoading] = useState(false);
+  const [contactPanelOpen, setContactPanelOpen] = useState(false);
+  const [selectedContactList, setSelectedContactList] = useState(null);
+  const [contactsInList, setContactsInList] = useState([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchListings = async () => {
@@ -35,6 +43,34 @@ const Listings = () => {
     };
     fetchListings();
   }, []);
+
+  useEffect(() => {
+    // Fetch contact lists for the selected listing when modal opens in view mode
+    const fetchContactLists = async () => {
+      if (!modalOpen || !selectedListing || !selectedListing.contactListIds || editMode) {
+        setContactLists([]);
+        return;
+      }
+      if (!Array.isArray(selectedListing.contactListIds) || selectedListing.contactListIds.length === 0) {
+        setContactLists([]);
+        return;
+      }
+      setContactListsLoading(true);
+      try {
+        const contactListsRef = collection(db, 'contactLists');
+        const q = query(contactListsRef, where('__name__', 'in', selectedListing.contactListIds.slice(0,10)));
+        // Firestore 'in' query supports max 10 elements
+        const querySnapshot = await getDocs(q);
+        const lists = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setContactLists(lists);
+      } catch (err) {
+        setContactLists([]);
+      } finally {
+        setContactListsLoading(false);
+      }
+    };
+    fetchContactLists();
+  }, [modalOpen, selectedListing, editMode]);
 
   const openModal = (listing) => {
     setSelectedListing(listing);
@@ -91,6 +127,39 @@ const Listings = () => {
     } catch (err) {
       alert('Failed to save: ' + err.message);
     }
+  };
+
+  const handleContactListClick = async (contactList) => {
+    setSelectedContactList(contactList);
+    setContactPanelOpen(true);
+    setContactsLoading(true);
+    try {
+      const contactsRef = collection(db, 'contacts');
+      const q = query(contactsRef, where('__name__', 'in', contactList.contactIds.slice(0,10)));
+      const querySnapshot = await getDocs(q);
+      const contacts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setContactsInList(contacts);
+    } catch (err) {
+      setContactsInList([]);
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  const handleContactClick = (contact) => {
+    setSelectedContact(contact);
+    setContactModalOpen(true);
+  };
+
+  const closeContactPanel = () => {
+    setContactPanelOpen(false);
+    setSelectedContactList(null);
+    setContactsInList([]);
+  };
+
+  const closeContactModal = () => {
+    setContactModalOpen(false);
+    setSelectedContact(null);
   };
 
   return (
@@ -182,7 +251,96 @@ const Listings = () => {
                 <div style={styles.modalField}><span style={styles.label}>SF Available:</span> {selectedListing['SF available'] || 'N/A'}</div>
                 <div style={styles.modalField}><span style={styles.label}>Lease or Sale:</span> {selectedListing.leaseorsale || 'N/A'}</div>
                 <div style={styles.modalField}><span style={styles.label}>Price per SF:</span> {selectedListing['price per sf'] || 'N/A'}</div>
+                <div style={styles.contactListsSection}>
+                  <div style={styles.contactListsTitle}>Contact Lists</div>
+                  {contactListsLoading ? (
+                    <div style={styles.contactListsLoading}>Loading contact lists...</div>
+                  ) : contactLists.length === 0 ? (
+                    <div style={styles.contactListsEmpty}>No contact lists associated.</div>
+                  ) : (
+                    <ul style={styles.contactListsList}>
+                      {contactLists.map(list => (
+                        <li key={list.id} style={styles.contactListItem}>
+                          <button
+                            style={styles.contactListButton}
+                            onClick={() => handleContactListClick(list)}
+                          >
+                            <span style={styles.contactListName}>{list.name}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </>
+            )}
+          </div>
+        </div>
+      )}
+      {contactPanelOpen && selectedContactList && (
+        <div style={styles.contactPanelOverlay} onClick={closeContactPanel}>
+          <div style={styles.contactPanel} onClick={e => e.stopPropagation()}>
+            <button style={styles.closeContactPanelButton} onClick={closeContactPanel}>×</button>
+            <h3 style={styles.contactPanelTitle}>{selectedContactList.name}</h3>
+            {contactsLoading ? (
+              <div style={styles.contactsLoading}>Loading contacts...</div>
+            ) : contactsInList.length === 0 ? (
+              <div style={styles.contactsEmpty}>No contacts in this list.</div>
+            ) : (
+              <div style={styles.contactsList}>
+                {contactsInList.map(contact => (
+                  <button
+                    key={contact.id}
+                    style={styles.contactButton}
+                    onClick={() => handleContactClick(contact)}
+                  >
+                    <div style={styles.contactButtonName}>
+                      {contact.firstName && contact.lastName 
+                        ? `${contact.firstName} ${contact.lastName}`
+                        : contact.firstName || contact.lastName || 'Unnamed Contact'
+                      }
+                    </div>
+                    {contact.company && (
+                      <div style={styles.contactButtonCompany}>{contact.company}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {contactModalOpen && selectedContact && (
+        <div style={styles.contactModalOverlay} onClick={closeContactModal}>
+          <div style={styles.contactModal} onClick={e => e.stopPropagation()}>
+            <button style={styles.closeContactModalButton} onClick={closeContactModal}>×</button>
+            <h3 style={styles.contactModalTitle}>Contact Details</h3>
+            <div style={styles.contactModalField}>
+              <span style={styles.label}>Name:</span> 
+              {selectedContact.firstName && selectedContact.lastName 
+                ? `${selectedContact.firstName} ${selectedContact.lastName}`
+                : selectedContact.firstName || selectedContact.lastName || 'N/A'
+              }
+            </div>
+            {selectedContact.company && (
+              <div style={styles.contactModalField}>
+                <span style={styles.label}>Company:</span> {selectedContact.company}
+              </div>
+            )}
+            {selectedContact.email && (
+              <div style={styles.contactModalField}>
+                <span style={styles.label}>Email:</span> {selectedContact.email}
+              </div>
+            )}
+            {selectedContact.phone && (
+              <div style={styles.contactModalField}>
+                <span style={styles.label}>Phone:</span> {selectedContact.phone}
+              </div>
+            )}
+            {selectedContact.businessSector && (
+              <div style={styles.contactModalField}>
+                <span style={styles.label}>Sector:</span> {selectedContact.businessSector}
+              </div>
             )}
           </div>
         </div>
@@ -379,6 +537,175 @@ const styles = {
     backdropFilter: 'blur(10px)',
     WebkitBackdropFilter: 'blur(10px)',
     zIndex: 1000,
+  },
+  contactListsSection: {
+    marginTop: '18px',
+    paddingTop: '12px',
+    borderTop: '1px solid #eee',
+  },
+  contactListsTitle: {
+    fontWeight: 600,
+    fontSize: '1.1rem',
+    marginBottom: '8px',
+    color: '#222',
+  },
+  contactListsLoading: {
+    color: '#888',
+    fontStyle: 'italic',
+    fontSize: '1rem',
+    marginBottom: '6px',
+  },
+  contactListsEmpty: {
+    color: '#888',
+    fontStyle: 'italic',
+    fontSize: '1rem',
+    marginBottom: '6px',
+  },
+  contactListsList: {
+    listStyle: 'none',
+    padding: 0,
+    margin: 0,
+  },
+  contactListItem: {
+    fontSize: '1rem',
+    color: '#2c2c2c',
+    marginBottom: '4px',
+    padding: '2px 0',
+  },
+  contactListName: {
+    fontWeight: 500,
+    color: '#1a237e',
+  },
+  contactListButton: {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    textAlign: 'left',
+    width: '100%',
+  },
+  contactPanelOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    background: 'rgba(0,0,0,0.25)',
+    zIndex: 3000,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  contactPanel: {
+    background: 'rgba(255,255,255,0.97)',
+    width: '400px',
+    height: '100vh',
+    padding: '36px 32px 28px 32px',
+    boxShadow: '-8px 0 32px rgba(0,0,0,0.15)',
+    fontFamily: 'Georgia, serif',
+    position: 'relative',
+    overflowY: 'auto',
+  },
+  closeContactPanelButton: {
+    position: 'absolute',
+    top: '12px',
+    right: '18px',
+    background: 'none',
+    border: 'none',
+    fontSize: '2rem',
+    color: '#222',
+    cursor: 'pointer',
+    zIndex: 10,
+  },
+  contactPanelTitle: {
+    fontSize: '1.5rem',
+    fontWeight: 600,
+    margin: '0 0 18px 0',
+    color: '#222',
+  },
+  contactsLoading: {
+    color: '#888',
+    fontStyle: 'italic',
+    fontSize: '1rem',
+  },
+  contactsEmpty: {
+    color: '#888',
+    fontStyle: 'italic',
+    fontSize: '1rem',
+  },
+  contactsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  contactButton: {
+    background: 'rgba(0,0,0,0.05)',
+    border: '1px solid rgba(0,0,0,0.1)',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'all 0.2s',
+  },
+  contactButtonName: {
+    fontSize: '1rem',
+    fontWeight: 500,
+    color: '#222',
+    marginBottom: '4px',
+  },
+  contactButtonCompany: {
+    fontSize: '0.9rem',
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  contactModalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    background: 'rgba(0,0,0,0.25)',
+    zIndex: 4000,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactModal: {
+    background: 'rgba(255,255,255,0.97)',
+    borderRadius: '16px',
+    padding: '36px 32px 28px 32px',
+    minWidth: '350px',
+    maxWidth: '90vw',
+    maxHeight: '80vh',
+    overflowY: 'auto',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+    fontFamily: 'Georgia, serif',
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  closeContactModalButton: {
+    position: 'absolute',
+    top: '12px',
+    right: '18px',
+    background: 'none',
+    border: 'none',
+    fontSize: '2rem',
+    color: '#222',
+    cursor: 'pointer',
+    zIndex: 10,
+  },
+  contactModalTitle: {
+    fontSize: '1.5rem',
+    fontWeight: 600,
+    margin: '0 0 18px 0',
+    color: '#222',
+  },
+  contactModalField: {
+    fontSize: '1.1rem',
+    color: '#2c2c2c',
+    marginBottom: '6px',
   },
 };
 
