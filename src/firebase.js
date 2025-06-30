@@ -1,5 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -26,6 +28,10 @@ let db;
 try {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
+  
+  // Initialize vanilla Firebase SDK
+  firebase.initializeApp(firebaseConfig);
+  
   console.log('Firebase initialized successfully');
 } catch (error) {
   console.error('Error initializing Firebase:', error);
@@ -38,4 +44,5 @@ try {
 }
 
 export { db };
+export { firebase };
 export default app; 
