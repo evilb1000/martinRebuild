@@ -32,6 +32,8 @@ const Contacts = () => {
   const [listSelectionMode, setListSelectionMode] = useState(false);
   const [selectedContactIds, setSelectedContactIds] = useState([]);
 
+  const [hoveredContactId, setHoveredContactId] = useState(null);
+
   const filterPanelRef = useRef(null);
   const mainContentRef = useRef(null);
 
@@ -442,65 +444,82 @@ const Contacts = () => {
               </div>
             ) : (
               <div style={styles.contactsGrid}>
-                {filteredContacts.map((contact) => (
-                  <div
-                    key={contact.id}
-                    style={{
-                      ...styles.contactCard,
-                      ...(listSelectionMode && selectedContactIds.includes(contact.id) ? styles.contactCardSelected : {}),
-                      cursor: listSelectionMode ? 'pointer' : 'default',
-                      opacity: !listSelectionMode ? 1 : undefined,
-                    }}
-                    onClick={() => handleContactCardClick(contact.id)}
-                    tabIndex={listSelectionMode ? 0 : -1}
-                    role={listSelectionMode ? 'button' : undefined}
-                    aria-pressed={listSelectionMode ? selectedContactIds.includes(contact.id) : undefined}
-                    onKeyDown={listSelectionMode ? (e => {
-                      if (e.key === 'Enter' || e.key === ' ') handleContactCardClick(contact.id);
-                    }) : undefined}
-                  >
-                    <div style={styles.contactHeader}>
-                      <h3 style={styles.contactName}>
-                        {contact.name || 'Unnamed Contact'}
-                      </h3>
-                      {contact.company && (
-                        <span style={styles.contactCompany}>{contact.company}</span>
-                      )}
+                {filteredContacts.map((contact) => {
+                  return (
+                    <div
+                      key={contact.id}
+                      style={{
+                        ...styles.contactCard,
+                        ...(hoveredContactId === contact.id ? styles.contactCardHover : {}),
+                        ...(listSelectionMode && selectedContactIds.includes(contact.id) ? styles.contactCardSelected : {}),
+                        cursor: listSelectionMode ? 'pointer' : 'pointer',
+                        opacity: !listSelectionMode ? 1 : undefined,
+                      }}
+                      onMouseEnter={() => setHoveredContactId(contact.id)}
+                      onMouseLeave={() => setHoveredContactId(null)}
+                      onClick={() => {
+                        if (listSelectionMode) {
+                          handleContactCardClick(contact.id);
+                        } else {
+                          handleOpenModal(contact, 'view');
+                        }
+                      }}
+                      tabIndex={0}
+                      role={'button'}
+                      aria-pressed={listSelectionMode ? selectedContactIds.includes(contact.id) : undefined}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          if (listSelectionMode) {
+                            handleContactCardClick(contact.id);
+                          } else {
+                            handleOpenModal(contact, 'view');
+                          }
+                        }
+                      }}
+                    >
+                      <div style={styles.contactHeader}>
+                        <h3 style={styles.contactName}>
+                          {contact.name || 'Unnamed Contact'}
+                        </h3>
+                        {contact.company && (
+                          <span style={styles.contactCompany}>{contact.company}</span>
+                        )}
+                      </div>
+                      <div style={styles.contactDetails}>
+                        {contact.email && (
+                          <div style={styles.contactItem}>
+                            <span style={styles.contactLabel}>Email:</span>
+                            <span style={styles.contactLink}>{contact.email}</span>
+                          </div>
+                        )}
+                        {contact.phone && (
+                          <div style={styles.contactItem}>
+                            <span style={styles.contactLabel}>Phone:</span>
+                            <span style={styles.contactLink}>{formatPhone(contact.phone)}</span>
+                          </div>
+                        )}
+                        {contact.businessSector && (
+                          <div style={styles.contactItem}>
+                            <span style={styles.contactLabel}>Sector:</span>
+                            <span style={styles.contactText}>{contact.businessSector}</span>
+                          </div>
+                        )}
+                        {contact.createdAt && (
+                          <div style={styles.contactItem}>
+                            <span style={styles.contactLabel}>Added:</span>
+                            <span style={styles.contactText}>
+                              {formatDate(contact.createdAt)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div style={styles.contactActions}>
+                        <button style={styles.actionButton} onClick={e => { e.stopPropagation(); handleOpenModal(contact, 'edit'); }}>Edit</button>
+                        <button style={styles.actionButton} onClick={e => { e.stopPropagation(); handleOpenModal(contact, 'view'); }}>Details</button>
+                      </div>
                     </div>
-                    <div style={styles.contactDetails}>
-                      {contact.email && (
-                        <div style={styles.contactItem}>
-                          <span style={styles.contactLabel}>Email:</span>
-                          <span style={styles.contactLink}>{contact.email}</span>
-                        </div>
-                      )}
-                      {contact.phone && (
-                        <div style={styles.contactItem}>
-                          <span style={styles.contactLabel}>Phone:</span>
-                          <span style={styles.contactLink}>{formatPhone(contact.phone)}</span>
-                        </div>
-                      )}
-                      {contact.businessSector && (
-                        <div style={styles.contactItem}>
-                          <span style={styles.contactLabel}>Sector:</span>
-                          <span style={styles.contactText}>{contact.businessSector}</span>
-                        </div>
-                      )}
-                      {contact.createdAt && (
-                        <div style={styles.contactItem}>
-                          <span style={styles.contactLabel}>Added:</span>
-                          <span style={styles.contactText}>
-                            {formatDate(contact.createdAt)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div style={styles.contactActions}>
-                      <button style={styles.actionButton} onClick={() => handleOpenModal(contact, 'edit')}>Edit</button>
-                      <button style={styles.actionButton} onClick={() => handleOpenModal(contact, 'view')}>Details</button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -637,10 +656,14 @@ const styles = {
     border: '1px solid rgba(255, 255, 255, 0.3)',
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
     padding: '25px',
-    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+    transition: 'box-shadow 0.2s, background 0.2s',
   },
   contactCardSelected: {
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  contactCardHover: {
+    boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.45)',
   },
   contactHeader: {
     marginBottom: '20px',
